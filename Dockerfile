@@ -4,6 +4,8 @@ LABEL maintainer="Arthur Qi"
 
 ENV PYTHONUNBUFFERED 1
 
+USER root
+
 COPY ./requirements.txt /tmp/requirements.txt
 COPY ./requirements.dev.txt /tmp/requirements.dev.txt
 COPY ./app /app
@@ -21,14 +23,6 @@ RUN python -m venv /py && \
 	if [ $DEV = "true" ] ; then \
 	  /py/bin/pip install -r /tmp/requirements.dev.txt ; \
 	fi && \
-    rm -rf /tmp && \
-    adduser  \
-      --disabled-password \
-      --no-create-home \
-      django-user
-
-RUN chown -R django-user:django-user  /app/
+    rm -rf /tmp 
 
 ENV PATH="/py/bin:$PATH"
-
-USER django-user
