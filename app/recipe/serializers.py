@@ -4,7 +4,7 @@ Serializers for Recipe app
 
 from rest_framework import serializers
 
-from core.models import Recipe, Tag
+from core.models import Recipe, Tag, Ingredient
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -16,14 +16,27 @@ class TagSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
+class IngredientSerializer(serializers.ModelSerializer):
+    """Serializer for Ingredient objects"""
+
+    class Meta:
+        model = Ingredient
+        fields = ["id", "name"]
+        read_only_fields = ["id"]
+
+
 class RecipeSerializer(serializers.ModelSerializer):
     """Serializer for Recipe objects"""
 
     tags = TagSerializer(many=True, required=False)
+    ingredients = IngredientSerializer(many=True, required=False)
 
     class Meta:
         model = Recipe
-        fields = ["id", "title", "time_minutes", "price", "link", "tags"]
+        fields = [
+            "id", "title", "time_minutes",
+            "price", "link", "tags", "ingredients"
+        ]
         read_only_fields = ["id"]
 
     def _get_or_create_tags(self, instance, tags_data):
@@ -36,21 +49,37 @@ class RecipeSerializer(serializers.ModelSerializer):
             )
             instance.tags.add(tag)
 
+    def _get_or_create_ingredients(self, instance, ingredients_data):
+        """Get or create ingredients"""
+        auth_user = self.context["request"].user
+        for ingredient_data in ingredients_data:
+            ingredient, created = Ingredient.objects.get_or_create(
+                user=auth_user, **ingredient_data
+            )
+            instance.ingredients.add(ingredient)
+
     def create(self, validated_data):
         """Create a new Recipe"""
         tags_data = validated_data.pop("tags", [])
+        ingredients_data = validated_data.pop("ingredients", [])
         recipe = Recipe.objects.create(**validated_data)
         self._get_or_create_tags(recipe, tags_data)
+        self._get_or_create_ingredients(recipe, ingredients_data)
 
         return recipe
 
     def update(self, instance, validated_data):
         """Update a Recipe"""
-        tags_data = validated_data.pop("tags", [])
+        tags_data = validated_data.pop("tags", None)
+        ingredients_data = validated_data.pop("ingredients", None)
 
         if tags_data is not None:
             instance.tags.clear()
             self._get_or_create_tags(instance, tags_data)
+
+        if ingredients_data is not None:
+            instance.ingredients.clear()
+            self._get_or_create_ingredients(instance, ingredients_data)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
